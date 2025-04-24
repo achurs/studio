@@ -31,7 +31,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { query, execute } from "@/lib/db";
-import { initializeDatabase } from "@/app/utils";
 
 // Define data types
 interface BookType {
@@ -67,6 +66,115 @@ interface StaffType {
   Email: string;
   Phone: string;
   Role: string;
+}
+
+async function initializeDatabase() {
+  try {
+    // Table for publishers
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Publishers (
+          PublisherID INTEGER PRIMARY KEY AUTOINCREMENT,
+          Name VARCHAR(255) NOT NULL,
+          Address TEXT,
+          Email VARCHAR(100) UNIQUE,
+          Phone VARCHAR(15) UNIQUE
+      )
+    `);
+
+    // Table for storing book details
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Books (
+          BookID INTEGER PRIMARY KEY AUTOINCREMENT,
+          Title VARCHAR(255) NOT NULL,
+          Author VARCHAR(255) NOT NULL,
+          ISBN VARCHAR(20) UNIQUE NOT NULL,
+          Genre VARCHAR(100),
+          PublishedYear INT,
+          PublisherID INT,
+          Quantity INT NOT NULL CHECK (Quantity >= 0),
+          FOREIGN KEY (PublisherID) REFERENCES Publishers(PublisherID) ON DELETE SET NULL
+      )
+    `);
+
+    // Table for membership types
+    await execute(`
+      CREATE TABLE IF NOT EXISTS MembershipTypes (
+          MembershipTypeID INTEGER PRIMARY KEY AUTOINCREMENT,
+          TypeName VARCHAR(100) NOT NULL,
+          DurationMonths INT NOT NULL,
+          Fee DECIMAL(10,2) NOT NULL
+      )
+    `);
+
+    // Table for library members
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Members (
+          MemberID INTEGER PRIMARY KEY AUTOINCREMENT,
+          Name VARCHAR(255) NOT NULL,
+          Email VARCHAR(100) UNIQUE NOT NULL,
+          Phone VARCHAR(15) UNIQUE NOT NULL,
+          Address TEXT,
+          MembershipTypeID INT,
+          MembershipDate DATE DEFAULT (DATE('now')),
+          FOREIGN KEY (MembershipTypeID) REFERENCES MembershipTypes(MembershipTypeID) ON DELETE SET NULL
+      )
+    `);
+
+    // Table for staff
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Staff (
+          StaffID INTEGER PRIMARY KEY AUTOINCREMENT,
+          Name VARCHAR(255) NOT NULL,
+          Email VARCHAR(100) UNIQUE NOT NULL,
+          Phone VARCHAR(15) UNIQUE NOT NULL,
+          Role VARCHAR(50),
+          HireDate DATE DEFAULT (DATE('now'))
+      )
+    `);
+
+    // Table for borrowing transactions
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Borrowings (
+          BorrowID INTEGER PRIMARY KEY AUTOINCREMENT,
+          MemberID INT,
+          BookID INT,
+          BorrowDate DATE DEFAULT (DATE('now')),
+          DueDate DATE NOT NULL,
+          ReturnDate DATE,
+          StaffID INT,
+          FOREIGN KEY (MemberID) REFERENCES Members(MemberID) ON DELETE CASCADE,
+          FOREIGN KEY (BookID) REFERENCES Books(BookID) ON DELETE CASCADE,
+          FOREIGN KEY (StaffID) REFERENCES Staff(StaffID) ON DELETE SET NULL
+      )
+    `);
+
+    // Table for fines
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Fines (
+          FineID INTEGER PRIMARY KEY AUTOINCREMENT,
+          BorrowID INT,
+          Amount DECIMAL(10,2) NOT NULL,
+          Paid BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (BorrowID) REFERENCES Borrowings(BorrowID) ON DELETE CASCADE
+      )
+    `);
+
+    // Table for book reservations
+    await execute(`
+      CREATE TABLE IF NOT EXISTS Reservations (
+          ReservationID INTEGER PRIMARY KEY AUTOINCREMENT,
+          MemberID INT,
+          BookID INT,
+          ReservationDate DATE DEFAULT (DATE('now')),
+          Status TEXT DEFAULT 'Pending',
+          FOREIGN KEY (MemberID) REFERENCES Members(MemberID) ON DELETE CASCADE,
+          FOREIGN KEY (BookID) REFERENCES Books(BookID) ON DELETE CASCADE
+      )
+    `);
+  } catch (error) {
+    console.error("Error initializing database:", error);
+    throw error;
+  }
 }
 
 export default function Home() {
@@ -116,10 +224,10 @@ export default function Home() {
     const fetchData = async () => {
       try {
         await initializeDatabase();
-        const books = query("SELECT * FROM Books") as BookType[];
-        const publishers = query("SELECT * FROM Publishers") as PublisherType[];
-        const members = query("SELECT * FROM Members") as MemberType[];
-        const staff = query("SELECT * FROM Staff") as StaffType[];
+        const books = await query("SELECT * FROM Books") as BookType[];
+        const publishers = await query("SELECT * FROM Publishers") as PublisherType[];
+        const members = await query("SELECT * FROM Members") as MemberType[];
+        const staff = await query("SELECT * FROM Staff") as StaffType[];
   
         setBookData(books);
         setPublisherData(publishers);
@@ -158,7 +266,7 @@ export default function Home() {
       );
       setOpenAddDialog(false);
       setNewBook({ Title: "", Author: "", ISBN: "", Genre: "", PublisherID: 1, Quantity: "1" });
-      const updatedBooks = query("SELECT * FROM Books") as BookType[];
+      const updatedBooks = await query("SELECT * FROM Books") as BookType[];
       setBookData(updatedBooks);
     } catch (error) {
       console.error("Failed to add book:", error);
@@ -173,7 +281,7 @@ export default function Home() {
       );
       setOpenAddDialog(false);
       setNewPublisher({ Name: "", Address: "", Email: "", Phone: "" });
-      const updatedPublishers = query("SELECT * FROM Publishers") as PublisherType[];
+      const updatedPublishers = await query("SELECT * FROM Publishers") as PublisherType[];
       setPublisherData(updatedPublishers);
     } catch (error) {
       console.error("Failed to add publisher:", error);
@@ -188,7 +296,7 @@ export default function Home() {
       );
       setOpenAddDialog(false);
       setNewMember({ Name: "", Email: "", Phone: "", Address: "", MembershipTypeID: "1" });
-      const updatedMembers = query("SELECT * FROM Members") as MemberType[];
+      const updatedMembers = await query("SELECT * FROM Members") as MemberType[];
       setMemberData(updatedMembers);
     } catch (error) {
       console.error("Failed to add member:", error);
@@ -203,7 +311,7 @@ export default function Home() {
       );
       setOpenAddDialog(false);
       setNewStaff({ Name: "", Email: "", Phone: "", Role: "" });
-      const updatedStaff = query("SELECT * FROM Staff") as StaffType[];
+      const updatedStaff = await query("SELECT * FROM Staff") as StaffType[];
       setStaffData(updatedStaff);
     } catch (error) {
       console.error("Failed to add staff:", error);

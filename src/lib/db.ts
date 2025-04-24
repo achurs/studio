@@ -1,8 +1,8 @@
+'use server';
 
 import sqlite3 from 'sqlite3';
 
-const dbPath = 'database.db';
-const db = new sqlite3.Database(dbPath);
+const db = new sqlite3.Database(':memory:');
 
 // Function to execute a query
 export const query = (sql: string, params: any[] = []) => {
