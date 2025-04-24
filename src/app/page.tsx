@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,189 +30,184 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { query, execute } from "@/lib/db";
+import { initializeDatabase } from "@/app/utils";
 
 // Define data types
 interface BookType {
-  id: number;
-  title: string;
-  author: string;
-  isbn: string;
-  genre: string;
-  availability: string;
+  BookID: number;
+  Title: string;
+  Author: string;
+  ISBN: string;
+  Genre: string;
+  Quantity: number;
+  PublisherID: number;
 }
 
 interface PublisherType {
-  id: number;
-  name: string;
-  address: string;
-  email: string;
-  phone: string;
+  PublisherID: number;
+  Name: string;
+  Address: string;
+  Email: string;
+  Phone: string;
 }
 
 interface MemberType {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
+  MemberID: number;
+  Name: string;
+  Email: string;
+  Phone: string;
+  Address: string;
+  MembershipTypeID: number;
 }
 
 interface StaffType {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
+  StaffID: number;
+  Name: string;
+  Email: string;
+  Phone: string;
+  Role: string;
 }
-
-const initialBookData: BookType[] = [
-  {
-    id: 1,
-    title: "The Great Gatsby",
-    author: "F. Scott Fitzgerald",
-    isbn: "9780743273565",
-    genre: "Fiction",
-    availability: "Available",
-  },
-  {
-    id: 2,
-    title: "To Kill a Mockingbird",
-    author: "Harper Lee",
-    isbn: "9780061120084",
-    genre: "Fiction",
-    availability: "Borrowed",
-  },
-];
-
-const initialPublisherData: PublisherType[] = [
-  {
-    id: 1,
-    name: "Penguin Books",
-    address: "New York, USA",
-    email: "contact@penguin.com",
-    phone: "1234567890",
-  },
-  {
-    id: 2,
-    name: "HarperCollins",
-    address: "London, UK",
-    email: "info@harpercollins.com",
-    phone: "0987654321",
-  },
-];
-
-const initialMemberData: MemberType[] = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "9876543210",
-    address: "123 Main St",
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "9123456780",
-    address: "456 Elm St",
-  },
-];
-
-const initialStaffData: StaffType[] = [
-  {
-    id: 1,
-    name: "Alice Johnson",
-    email: "alice@example.com",
-    phone: "9012345678",
-    role: "Librarian",
-  },
-  {
-    id: 2,
-    name: "Bob Williams",
-    email: "bob@example.com",
-    phone: "8901234567",
-    role: "Assistant",
-  },
-];
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<BookType[]>(initialBookData);
+  const [searchResults, setSearchResults] = useState<BookType[]>([]);
   const [selectedTable, setSelectedTable] = useState<
     "books" | "publishers" | "members" | "staff" | null
   >(null);
 
   // State variables for data
-  const [bookData, setBookData] = useState<BookType[]>(initialBookData);
-  const [publisherData, setPublisherData] = useState<PublisherType[]>(initialPublisherData);
-  const [memberData, setMemberData] = useState<MemberType[]>(initialMemberData);
-  const [staffData, setStaffData] = useState<StaffType[]>(initialStaffData);
+  const [bookData, setBookData] = useState<BookType[]>([]);
+  const [publisherData, setPublisherData] = useState<PublisherType[]>([]);
+  const [memberData, setMemberData] = useState<MemberType[]>([]);
+  const [staffData, setStaffData] = useState<StaffType[]>([]);
 
   // State variables for add dialog
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [newBook, setNewBook] = useState<Omit<BookType, "id">>({
-    title: "",
-    author: "",
-    isbn: "",
-    genre: "",
-    availability: "Available",
+  const [newBook, setNewBook] = useState<Omit<BookType, "BookID" | "Quantity"> & { Quantity: string }>({
+    Title: "",
+    Author: "",
+    ISBN: "",
+    Genre: "",
+    PublisherID: 1,
+    Quantity: "1",
   });
-  const [newPublisher, setNewPublisher] = useState<Omit<PublisherType, "id">>({
-    name: "",
-    address: "",
-    email: "",
-    phone: "",
+  const [newPublisher, setNewPublisher] = useState<Omit<PublisherType, "PublisherID">>({
+    Name: "",
+    Address: "",
+    Email: "",
+    Phone: "",
   });
-  const [newMember, setNewMember] = useState<Omit<MemberType, "id">>({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
+  const [newMember, setNewMember] = useState<Omit<MemberType, "MemberID" | "MembershipTypeID"> & { MembershipTypeID: string }>({
+    Name: "",
+    Email: "",
+    Phone: "",
+    Address: "",
+    MembershipTypeID: "1",
   });
-  const [newStaff, setNewStaff] = useState<Omit<StaffType, "id">>({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
+  const [newStaff, setNewStaff] = useState<Omit<StaffType, "StaffID">>({
+    Name: "",
+    Email: "",
+    Phone: "",
+    Role: "",
   });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        await initializeDatabase();
+        const books = query("SELECT * FROM Books") as BookType[];
+        const publishers = query("SELECT * FROM Publishers") as PublisherType[];
+        const members = query("SELECT * FROM Members") as MemberType[];
+        const staff = query("SELECT * FROM Staff") as StaffType[];
+  
+        setBookData(books);
+        setPublisherData(publishers);
+        setMemberData(members);
+        setStaffData(staff);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     const term = event.target.value;
     setSearchTerm(term);
     const results = bookData.filter((book) =>
-      book.title.toLowerCase().includes(term.toLowerCase()) ||
-      book.author.toLowerCase().includes(term.toLowerCase()) ||
-      book.isbn.includes(term)
+      book.Title.toLowerCase().includes(term.toLowerCase()) ||
+      book.Author.toLowerCase().includes(term.toLowerCase()) ||
+      book.ISBN.includes(term)
     );
     setSearchResults(results);
   };
 
-  const handleAddBook = () => {
-    const newId = bookData.length > 0 ? bookData[bookData.length - 1].id + 1 : 1;
-    setBookData([...bookData, { id: newId, ...newBook }]);
-    setOpenAddDialog(false);
-    setNewBook({ title: "", author: "", isbn: "", genre: "", availability: "Available" });
+  const handleAddBook = async () => {
+    try {
+      await execute(
+        "INSERT INTO Books (Title, Author, ISBN, Genre, PublisherID, Quantity) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          newBook.Title,
+          newBook.Author,
+          newBook.ISBN,
+          newBook.Genre,
+          newBook.PublisherID,
+          parseInt(newBook.Quantity, 10),
+        ]
+      );
+      setOpenAddDialog(false);
+      setNewBook({ Title: "", Author: "", ISBN: "", Genre: "", PublisherID: 1, Quantity: "1" });
+      const updatedBooks = query("SELECT * FROM Books") as BookType[];
+      setBookData(updatedBooks);
+    } catch (error) {
+      console.error("Failed to add book:", error);
+    }
   };
 
-  const handleAddPublisher = () => {
-    const newId = publisherData.length > 0 ? publisherData[publisherData.length - 1].id + 1 : 1;
-    setPublisherData([...publisherData, { id: newId, ...newPublisher }]);
-    setOpenAddDialog(false);
-    setNewPublisher({ name: "", address: "", email: "", phone: "" });
+  const handleAddPublisher = async () => {
+    try {
+      await execute(
+        "INSERT INTO Publishers (Name, Address, Email, Phone) VALUES (?, ?, ?, ?)",
+        [newPublisher.Name, newPublisher.Address, newPublisher.Email, newPublisher.Phone]
+      );
+      setOpenAddDialog(false);
+      setNewPublisher({ Name: "", Address: "", Email: "", Phone: "" });
+      const updatedPublishers = query("SELECT * FROM Publishers") as PublisherType[];
+      setPublisherData(updatedPublishers);
+    } catch (error) {
+      console.error("Failed to add publisher:", error);
+    }
   };
 
-  const handleAddMember = () => {
-    const newId = memberData.length > 0 ? memberData[memberData.length - 1].id + 1 : 1;
-    setMemberData([...memberData, { id: newId, ...newMember }]);
-    setOpenAddDialog(false);
-    setNewMember({ name: "", email: "", phone: "", address: "" });
+  const handleAddMember = async () => {
+    try {
+      await execute(
+        "INSERT INTO Members (Name, Email, Phone, Address, MembershipTypeID) VALUES (?, ?, ?, ?, ?)",
+        [newMember.Name, newMember.Email, newMember.Phone, newMember.Address, parseInt(newMember.MembershipTypeID, 10)]
+      );
+      setOpenAddDialog(false);
+      setNewMember({ Name: "", Email: "", Phone: "", Address: "", MembershipTypeID: "1" });
+      const updatedMembers = query("SELECT * FROM Members") as MemberType[];
+      setMemberData(updatedMembers);
+    } catch (error) {
+      console.error("Failed to add member:", error);
+    }
   };
 
-  const handleAddStaff = () => {
-    const newId = staffData.length > 0 ? staffData[staffData.length - 1].id + 1 : 1;
-    setStaffData([...staffData, { id: newId, ...newStaff }]);
-    setOpenAddDialog(false);
-    setNewStaff({ name: "", email: "", phone: "", role: "" });
+  const handleAddStaff = async () => {
+    try {
+      await execute(
+        "INSERT INTO Staff (Name, Email, Phone, Role) VALUES (?, ?, ?, ?)",
+        [newStaff.Name, newStaff.Email, newStaff.Phone, newStaff.Role]
+      );
+      setOpenAddDialog(false);
+      setNewStaff({ Name: "", Email: "", Phone: "", Role: "" });
+      const updatedStaff = query("SELECT * FROM Staff") as StaffType[];
+      setStaffData(updatedStaff);
+    } catch (error) {
+      console.error("Failed to add staff:", error);
+    }
   };
 
   const renderTable = () => {
@@ -258,50 +254,61 @@ export default function Home() {
             <DialogDescription>Enter the details for the new book.</DialogDescription>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
+                <Label htmlFor="Title" className="text-right">
                   Title
                 </Label>
                 <Input
-                  id="title"
-                  value={newBook.title}
-                  onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
+                  id="Title"
+                  value={newBook.Title}
+                  onChange={(e) => setNewBook({ ...newBook, Title: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="author" className="text-right">
+                <Label htmlFor="Author" className="text-right">
                   Author
                 </Label>
                 <Input
-                  id="author"
-                  value={newBook.author}
-                  onChange={(e) => setNewBook({ ...newBook, author: e.target.value })}
+                  id="Author"
+                  value={newBook.Author}
+                  onChange={(e) => setNewBook({ ...newBook, Author: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="isbn" className="text-right">
+                <Label htmlFor="ISBN" className="text-right">
                   ISBN
                 </Label>
                 <Input
-                  id="isbn"
-                  value={newBook.isbn}
-                  onChange={(e) => setNewBook({ ...newBook, isbn: e.target.value })}
+                  id="ISBN"
+                  value={newBook.ISBN}
+                  onChange={(e) => setNewBook({ ...newBook, ISBN: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="genre" className="text-right">
+                <Label htmlFor="Genre" className="text-right">
                   Genre
                 </Label>
                 <Input
-                  id="genre"
-                  value={newBook.genre}
-                  onChange={(e) => setNewBook({ ...newBook, genre: e.target.value })}
+                  id="Genre"
+                  value={newBook.Genre}
+                  onChange={(e) => setNewBook({ ...newBook, Genre: e.target.value })}
                   className="col-span-3"
                 />
               </div>
-              {/* Availability is currently hardcoded, can be changed to a select if needed */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="Quantity" className="text-right">
+                  Quantity
+                </Label>
+                <Input
+                  type="number"
+                  id="Quantity"
+                  value={newBook.Quantity}
+                  onChange={(e) => setNewBook({ ...newBook, Quantity: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
             </div>
             <Button type="button" onClick={handleAddBook}>
               Add Book
@@ -315,47 +322,47 @@ export default function Home() {
             <DialogDescription>Enter the details for the new publisher.</DialogDescription>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
+                <Label htmlFor="Name" className="text-right">
                   Name
                 </Label>
                 <Input
-                  id="name"
-                  value={newPublisher.name}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, name: e.target.value })}
+                  id="Name"
+                  value={newPublisher.Name}
+                  onChange={(e) => setNewPublisher({ ...newPublisher, Name: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="address" className="text-right">
+                <Label htmlFor="Address" className="text-right">
                   Address
                 </Label>
                 <Textarea
-                  id="address"
-                  value={newPublisher.address}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, address: e.target.value })}
+                  id="Address"
+                  value={newPublisher.Address}
+                  onChange={(e) => setNewPublisher({ ...newPublisher, Address: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
+                <Label htmlFor="Email" className="text-right">
                   Email
                 </Label>
                 <Input
-                  id="email"
+                  id="Email"
                   type="email"
-                  value={newPublisher.email}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, email: e.target.value })}
+                  value={newPublisher.Email}
+                  onChange={(e) => setNewPublisher({ ...newPublisher, Email: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
+                <Label htmlFor="Phone" className="text-right">
                   Phone
                 </Label>
                 <Input
-                  id="phone"
-                  value={newPublisher.phone}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, phone: e.target.value })}
+                  id="Phone"
+                  value={newPublisher.Phone}
+                  onChange={(e) => setNewPublisher({ ...newPublisher, Phone: e.target.value })}
                   className="col-span-3"
                 />
               </div>
@@ -372,47 +379,59 @@ export default function Home() {
             <DialogDescription>Enter the details for the new member.</DialogDescription>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
+                <Label htmlFor="Name" className="text-right">
                   Name
                 </Label>
                 <Input
-                  id="name"
-                  value={newMember.name}
-                  onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                  id="Name"
+                  value={newMember.Name}
+                  onChange={(e) => setNewMember({ ...newMember, Name: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
+                <Label htmlFor="Email" className="text-right">
                   Email
                 </Label>
                 <Input
-                  id="email"
+                  id="Email"
                   type="email"
-                  value={newMember.email}
-                  onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                  value={newMember.Email}
+                  onChange={(e) => setNewMember({ ...newMember, Email: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
+                <Label htmlFor="Phone" className="text-right">
                   Phone
                 </Label>
                 <Input
-                  id="phone"
-                  value={newMember.phone}
-                  onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                  id="Phone"
+                  value={newMember.Phone}
+                  onChange={(e) => setNewMember({ ...newMember, Phone: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="address" className="text-right">
+                <Label htmlFor="Address" className="text-right">
                   Address
                 </Label>
                 <Textarea
-                  id="address"
-                  value={newMember.address}
-                  onChange={(e) => setNewMember({ ...newMember, address: e.target.value })}
+                  id="Address"
+                  value={newMember.Address}
+                  onChange={(e) => setNewMember({ ...newMember, Address: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="MembershipTypeID" className="text-right">
+                  Membership Type ID
+                </Label>
+                <Input
+                  type="number"
+                  id="MembershipTypeID"
+                  value={newMember.MembershipTypeID}
+                  onChange={(e) => setNewMember({ ...newMember, MembershipTypeID: e.target.value })}
                   className="col-span-3"
                 />
               </div>
@@ -429,47 +448,47 @@ export default function Home() {
             <DialogDescription>Enter the details for the new staff.</DialogDescription>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
+                <Label htmlFor="Name" className="text-right">
                   Name
                 </Label>
                 <Input
-                  id="name"
-                  value={newStaff.name}
-                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                  id="Name"
+                  value={newStaff.Name}
+                  onChange={(e) => setNewStaff({ ...newStaff, Name: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
+                <Label htmlFor="Email" className="text-right">
                   Email
                 </Label>
                 <Input
-                  id="email"
+                  id="Email"
                   type="email"
-                  value={newStaff.email}
-                  onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                  value={newStaff.Email}
+                  onChange={(e) => setNewStaff({ ...newStaff, Email: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
+                <Label htmlFor="Phone" className="text-right">
                   Phone
                 </Label>
                 <Input
-                  id="phone"
-                  value={newStaff.phone}
-                  onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                  id="Phone"
+                  value={newStaff.Phone}
+                  onChange={(e) => setNewStaff({ ...newStaff, Phone: e.target.value })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">
+                <Label htmlFor="Role" className="text-right">
                   Role
                 </Label>
                 <Input
-                  id="role"
-                  value={newStaff.role}
-                  onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+                  id="Role"
+                  value={newStaff.Role}
+                  onChange={(e) => setNewStaff({ ...newStaff, Role: e.target.value })}
                   className="col-span-3"
                 />
               </div>
@@ -579,15 +598,15 @@ function BookTable({ data }: { data: any[] }) {
   return (
     <div className="grid gap-4">
       {data.map((book) => (
-        <Card key={book.id}>
+        <Card key={book.BookID}>
           <CardHeader>
-            <CardTitle>{book.title}</CardTitle>
+            <CardTitle>{book.Title}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Author: {book.author}</p>
-            <p>ISBN: {book.isbn}</p>
-            <p>Genre: {book.genre}</p>
-            <p>Availability: {book.availability}</p>
+            <p>Author: {book.Author}</p>
+            <p>ISBN: {book.ISBN}</p>
+            <p>Genre: {book.Genre}</p>
+            <p>Quantity: {book.Quantity}</p>
           </CardContent>
         </Card>
       ))}
@@ -599,14 +618,14 @@ function PublisherTable({ data }: { data: any[] }) {
   return (
     <div className="grid gap-4">
       {data.map((publisher) => (
-        <Card key={publisher.id}>
+        <Card key={publisher.PublisherID}>
           <CardHeader>
-            <CardTitle>{publisher.name}</CardTitle>
+            <CardTitle>{publisher.Name}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Address: {publisher.address}</p>
-            <p>Email: {publisher.email}</p>
-            <p>Phone: {publisher.phone}</p>
+            <p>Address: {publisher.Address}</p>
+            <p>Email: {publisher.Email}</p>
+            <p>Phone: {publisher.Phone}</p>
           </CardContent>
         </Card>
       ))}
@@ -618,14 +637,14 @@ function MemberTable({ data }: { data: any[] }) {
   return (
     <div className="grid gap-4">
       {data.map((member) => (
-        <Card key={member.id}>
+        <Card key={member.MemberID}>
           <CardHeader>
-            <CardTitle>{member.name}</CardTitle>
+            <CardTitle>{member.Name}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Email: {member.email}</p>
-            <p>Phone: {member.phone}</p>
-            <p>Address: {member.address}</p>
+            <p>Email: {member.Email}</p>
+            <p>Phone: {member.Phone}</p>
+            <p>Address: {member.Address}</p>
           </CardContent>
         </Card>
       ))}
@@ -637,14 +656,14 @@ function StaffTable({ data }: { data: any[] }) {
   return (
     <div className="grid gap-4">
       {data.map((staff) => (
-        <Card key={staff.id}>
+        <Card key={staff.StaffID}>
           <CardHeader>
-            <CardTitle>{staff.name}</CardTitle>
+            <CardTitle>{staff.Name}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Email: {staff.email}</p>
-            <p>Phone: {staff.phone}</p>
-            <p>Role: {staff.role}</p>
+            <p>Email: {staff.Email}</p>
+            <p>Phone: {staff.Phone}</p>
+            <p>Role: {staff.Role}</p>
           </CardContent>
         </Card>
       ))}
