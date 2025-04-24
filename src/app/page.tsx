@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import {useState, useEffect} from 'react';
+import {Input} from '@/components/ui/input';
+import {Button} from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -16,9 +16,9 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
-} from "@/components/ui/sidebar";
-import { Search, Book, Users, User, Plus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from '@/components/ui/sidebar';
+import {Search, Book, Users, User, Plus} from 'lucide-react';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -26,10 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { query, execute, initializeDatabase } from "@/lib/db";
+} from '@/components/ui/dialog';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
+import {query, execute} from '@/lib/db';
+import {BookTable} from '@/components/book-table';
+import {PublisherTable} from '@/components/publisher-table';
+import {MemberTable} from '@/components/member-table';
+import {StaffTable} from '@/components/staff-table';
 
 // Define data types
 interface BookType {
@@ -68,11 +72,11 @@ interface StaffType {
 }
 
 export default function Home() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<BookType[]>([]);
-  const [selectedTable, setSelectedTable] = useState<
-    "books" | "publishers" | "members" | "staff" | null
-  >(null);
+  const [selectedTable,
+    setSelectedTable,
+  ] = useState<'books' | 'publishers' | 'members' | 'staff' | null>(null);
 
   // State variables for data
   const [bookData, setBookData] = useState<BookType[]>([]);
@@ -82,48 +86,58 @@ export default function Home() {
 
   // State variables for add dialog
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [newBook, setNewBook] = useState<Omit<BookType, "BookID" | "Quantity"> & { Quantity: string }>({
-    Title: "",
-    Author: "",
-    ISBN: "",
-    Genre: "",
+  const [newBook,
+    setNewBook,
+  ] = useState<Omit<BookType, 'BookID' | 'Quantity'> & {
+    Quantity: string;
+  }>({
+    Title: '',
+    Author: '',
+    ISBN: '',
+    Genre: '',
     PublisherID: 1,
-    Quantity: "1",
+    Quantity: '1',
   });
-  const [newPublisher, setNewPublisher] = useState<Omit<PublisherType, "PublisherID">>({
-    Name: "",
-    Address: "",
-    Email: "",
-    Phone: "",
+  const [newPublisher,
+    setNewPublisher,
+  ] = useState<Omit<PublisherType, 'PublisherID'>>({
+    Name: '',
+    Address: '',
+    Email: '',
+    Phone: '',
   });
-  const [newMember, setNewMember] = useState<Omit<MemberType, "MemberID" | "MembershipTypeID"> & { MembershipTypeID: string }>({
-    Name: "",
-    Email: "",
-    Phone: "",
-    Address: "",
-    MembershipTypeID: "1",
+  const [newMember,
+    setNewMember,
+  ] = useState<Omit<MemberType, 'MemberID' | 'MembershipTypeID'> & {
+    MembershipTypeID: string;
+  }>({
+    Name: '',
+    Email: '',
+    Phone: '',
+    Address: '',
+    MembershipTypeID: '1',
   });
-  const [newStaff, setNewStaff] = useState<Omit<StaffType, "StaffID">>({
-    Name: "",
-    Email: "",
-    Phone: "",
-    Role: "",
+  const [newStaff, setNewStaff] = useState<Omit<StaffType, 'StaffID'>>({
+    Name: '',
+    Email: '',
+    Phone: '',
+    Role: '',
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const books = await query("SELECT * FROM Books") as BookType[];
-        const publishers = await query("SELECT * FROM Publishers") as PublisherType[];
-        const members = await query("SELECT * FROM Members") as MemberType[];
-        const staff = await query("SELECT * FROM Staff") as StaffType[];
-  
+        const books = (await query('SELECT * FROM Books')) as BookType[];
+        const publishers = (await query('SELECT * FROM Publishers')) as PublisherType[];
+        const members = (await query('SELECT * FROM Members')) as MemberType[];
+        const staff = (await query('SELECT * FROM Staff')) as StaffType[];
+
         setBookData(books);
         setPublisherData(publishers);
         setMemberData(members);
         setStaffData(staff);
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error('Failed to fetch data:', error);
       }
     };
     fetchData();
@@ -132,18 +146,14 @@ export default function Home() {
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     const term = event.target.value;
     setSearchTerm(term);
-    const results = bookData.filter((book) =>
-      book.Title.toLowerCase().includes(term.toLowerCase()) ||
-      book.Author.toLowerCase().includes(term.toLowerCase()) ||
-      book.ISBN.includes(term)
-    );
+    const results = bookData.filter(book => book.Title.toLowerCase().includes(term.toLowerCase()) || book.Author.toLowerCase().includes(term.toLowerCase()) || book.ISBN.includes(term));
     setSearchResults(results);
   };
 
   const handleAddBook = async () => {
     try {
       await execute(
-        "INSERT INTO Books (Title, Author, ISBN, Genre, PublisherID, Quantity) VALUES (?, ?, ?, ?, ?, ?)",
+        'INSERT INTO Books (Title, Author, ISBN, Genre, PublisherID, Quantity) VALUES (?, ?, ?, ?, ?, ?)',
         [
           newBook.Title,
           newBook.Author,
@@ -154,83 +164,102 @@ export default function Home() {
         ]
       );
       setOpenAddDialog(false);
-      setNewBook({ Title: "", Author: "", ISBN: "", Genre: "", PublisherID: 1, Quantity: "1" });
-      const updatedBooks = await query("SELECT * FROM Books") as BookType[];
+      setNewBook({
+        Title: '',
+        Author: '',
+        ISBN: '',
+        Genre: '',
+        PublisherID: 1,
+        Quantity: '1',
+      });
+      const updatedBooks = (await query('SELECT * FROM Books')) as BookType[];
       setBookData(updatedBooks);
     } catch (error) {
-      console.error("Failed to add book:", error);
+      console.error('Failed to add book:', error);
     }
   };
 
   const handleAddPublisher = async () => {
     try {
       await execute(
-        "INSERT INTO Publishers (Name, Address, Email, Phone) VALUES (?, ?, ?, ?)",
+        'INSERT INTO Publishers (Name, Address, Email, Phone) VALUES (?, ?, ?, ?)',
         [newPublisher.Name, newPublisher.Address, newPublisher.Email, newPublisher.Phone]
       );
       setOpenAddDialog(false);
-      setNewPublisher({ Name: "", Address: "", Email: "", Phone: "" });
-      const updatedPublishers = await query("SELECT * FROM Publishers") as PublisherType[];
+      setNewPublisher({Name: '', Address: '', Email: '', Phone: ''});
+      const updatedPublishers = (await query('SELECT * FROM Publishers')) as PublisherType[];
       setPublisherData(updatedPublishers);
     } catch (error) {
-      console.error("Failed to add publisher:", error);
+      console.error('Failed to add publisher:', error);
     }
   };
 
   const handleAddMember = async () => {
     try {
       await execute(
-        "INSERT INTO Members (Name, Email, Phone, Address, MembershipTypeID) VALUES (?, ?, ?, ?, ?)",
-        [newMember.Name, newMember.Email, newMember.Phone, newMember.Address, parseInt(newMember.MembershipTypeID, 10)]
+        'INSERT INTO Members (Name, Email, Phone, Address, MembershipTypeID) VALUES (?, ?, ?, ?, ?)',
+        [
+          newMember.Name,
+          newMember.Email,
+          newMember.Phone,
+          newMember.Address,
+          parseInt(newMember.MembershipTypeID, 10),
+        ]
       );
       setOpenAddDialog(false);
-      setNewMember({ Name: "", Email: "", Phone: "", Address: "", MembershipTypeID: "1" });
-      const updatedMembers = await query("SELECT * FROM Members") as MemberType[];
+      setNewMember({
+        Name: '',
+        Email: '',
+        Phone: '',
+        Address: '',
+        MembershipTypeID: '1',
+      });
+      const updatedMembers = (await query('SELECT * FROM Members')) as MemberType[];
       setMemberData(updatedMembers);
     } catch (error) {
-      console.error("Failed to add member:", error);
+      console.error('Failed to add member:', error);
     }
   };
 
   const handleAddStaff = async () => {
     try {
       await execute(
-        "INSERT INTO Staff (Name, Email, Phone, Role) VALUES (?, ?, ?, ?)",
+        'INSERT INTO Staff (Name, Email, Phone, Role) VALUES (?, ?, ?, ?)',
         [newStaff.Name, newStaff.Email, newStaff.Phone, newStaff.Role]
       );
       setOpenAddDialog(false);
-      setNewStaff({ Name: "", Email: "", Phone: "", Role: "" });
-      const updatedStaff = await query("SELECT * FROM Staff") as StaffType[];
+      setNewStaff({Name: '', Email: '', Phone: '', Role: ''});
+      const updatedStaff = (await query('SELECT * FROM Staff')) as StaffType[];
       setStaffData(updatedStaff);
     } catch (error) {
-      console.error("Failed to add staff:", error);
+      console.error('Failed to add staff:', error);
     }
   };
 
   const renderTable = () => {
     switch (selectedTable) {
-      case "books":
+      case 'books':
         return (
           <>
             <CardTitle>Books</CardTitle>
             <BookTable data={bookData} />
           </>
         );
-      case "publishers":
+      case 'publishers':
         return (
           <>
             <CardTitle>Publishers</CardTitle>
             <PublisherTable data={publisherData} />
           </>
         );
-      case "members":
+      case 'members':
         return (
           <>
             <CardTitle>Members</CardTitle>
             <MemberTable data={memberData} />
           </>
         );
-      case "staff":
+      case 'staff':
         return (
           <>
             <CardTitle>Staff</CardTitle>
@@ -244,7 +273,7 @@ export default function Home() {
 
   const renderAddDialogContent = () => {
     switch (selectedTable) {
-      case "books":
+      case 'books':
         return (
           <>
             <DialogTitle>Add New Book</DialogTitle>
@@ -257,7 +286,7 @@ export default function Home() {
                 <Input
                   id="Title"
                   value={newBook.Title}
-                  onChange={(e) => setNewBook({ ...newBook, Title: e.target.value })}
+                  onChange={e => setNewBook({...newBook, Title: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -268,7 +297,7 @@ export default function Home() {
                 <Input
                   id="Author"
                   value={newBook.Author}
-                  onChange={(e) => setNewBook({ ...newBook, Author: e.target.value })}
+                  onChange={e => setNewBook({...newBook, Author: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -279,7 +308,7 @@ export default function Home() {
                 <Input
                   id="ISBN"
                   value={newBook.ISBN}
-                  onChange={(e) => setNewBook({ ...newBook, ISBN: e.target.value })}
+                  onChange={e => setNewBook({...newBook, ISBN: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -290,7 +319,7 @@ export default function Home() {
                 <Input
                   id="Genre"
                   value={newBook.Genre}
-                  onChange={(e) => setNewBook({ ...newBook, Genre: e.target.value })}
+                  onChange={e => setNewBook({...newBook, Genre: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -302,7 +331,9 @@ export default function Home() {
                   type="number"
                   id="Quantity"
                   value={newBook.Quantity}
-                  onChange={(e) => setNewBook({ ...newBook, Quantity: e.target.value })}
+                  onChange={e =>
+                    setNewBook({...newBook, Quantity: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -312,7 +343,7 @@ export default function Home() {
             </Button>
           </>
         );
-      case "publishers":
+      case 'publishers':
         return (
           <>
             <DialogTitle>Add New Publisher</DialogTitle>
@@ -325,7 +356,9 @@ export default function Home() {
                 <Input
                   id="Name"
                   value={newPublisher.Name}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, Name: e.target.value })}
+                  onChange={e =>
+                    setNewPublisher({...newPublisher, Name: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -336,7 +369,9 @@ export default function Home() {
                 <Textarea
                   id="Address"
                   value={newPublisher.Address}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, Address: e.target.value })}
+                  onChange={e =>
+                    setNewPublisher({...newPublisher, Address: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -348,7 +383,9 @@ export default function Home() {
                   id="Email"
                   type="email"
                   value={newPublisher.Email}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, Email: e.target.value })}
+                  onChange={e =>
+                    setNewPublisher({...newPublisher, Email: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -359,7 +396,9 @@ export default function Home() {
                 <Input
                   id="Phone"
                   value={newPublisher.Phone}
-                  onChange={(e) => setNewPublisher({ ...newPublisher, Phone: e.target.value })}
+                  onChange={e =>
+                    setNewPublisher({...newPublisher, Phone: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -369,7 +408,7 @@ export default function Home() {
             </Button>
           </>
         );
-      case "members":
+      case 'members':
         return (
           <>
             <DialogTitle>Add New Member</DialogTitle>
@@ -382,7 +421,7 @@ export default function Home() {
                 <Input
                   id="Name"
                   value={newMember.Name}
-                  onChange={(e) => setNewMember({ ...newMember, Name: e.target.value })}
+                  onChange={e => setNewMember({...newMember, Name: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -394,7 +433,7 @@ export default function Home() {
                   id="Email"
                   type="email"
                   value={newMember.Email}
-                  onChange={(e) => setNewMember({ ...newMember, Email: e.target.value })}
+                  onChange={e => setNewMember({...newMember, Email: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -405,7 +444,7 @@ export default function Home() {
                 <Input
                   id="Phone"
                   value={newMember.Phone}
-                  onChange={(e) => setNewMember({ ...newMember, Phone: e.target.value })}
+                  onChange={e => setNewMember({...newMember, Phone: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -416,7 +455,9 @@ export default function Home() {
                 <Textarea
                   id="Address"
                   value={newMember.Address}
-                  onChange={(e) => setNewMember({ ...newMember, Address: e.target.value })}
+                  onChange={e =>
+                    setNewMember({...newMember, Address: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -428,7 +469,9 @@ export default function Home() {
                   type="number"
                   id="MembershipTypeID"
                   value={newMember.MembershipTypeID}
-                  onChange={(e) => setNewMember({ ...newMember, MembershipTypeID: e.target.value })}
+                  onChange={e =>
+                    setNewMember({...newMember, MembershipTypeID: e.target.value})
+                  }
                   className="col-span-3"
                 />
               </div>
@@ -438,7 +481,7 @@ export default function Home() {
             </Button>
           </>
         );
-      case "staff":
+      case 'staff':
         return (
           <>
             <DialogTitle>Add New Staff</DialogTitle>
@@ -451,7 +494,7 @@ export default function Home() {
                 <Input
                   id="Name"
                   value={newStaff.Name}
-                  onChange={(e) => setNewStaff({ ...newStaff, Name: e.target.value })}
+                  onChange={e => setNewStaff({...newStaff, Name: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -463,7 +506,7 @@ export default function Home() {
                   id="Email"
                   type="email"
                   value={newStaff.Email}
-                  onChange={(e) => setNewStaff({ ...newStaff, Email: e.target.value })}
+                  onChange={e => setNewStaff({...newStaff, Email: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -474,7 +517,7 @@ export default function Home() {
                 <Input
                   id="Phone"
                   value={newStaff.Phone}
-                  onChange={(e) => setNewStaff({ ...newStaff, Phone: e.target.value })}
+                  onChange={e => setNewStaff({...newStaff, Phone: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -485,7 +528,7 @@ export default function Home() {
                 <Input
                   id="Role"
                   value={newStaff.Role}
-                  onChange={(e) => setNewStaff({ ...newStaff, Role: e.target.value })}
+                  onChange={e => setNewStaff({...newStaff, Role: e.target.value})}
                   className="col-span-3"
                 />
               </div>
@@ -506,7 +549,7 @@ export default function Home() {
         width="16rem"
         variant="inset"
         collapsible="icon"
-        style={{ height: "100vh" }}
+        style={{height: '100vh'}}
       >
         <SidebarHeader>
           <h2 className="text-lg font-semibold">LibraryLook</h2>
@@ -530,25 +573,25 @@ export default function Home() {
             <SidebarGroupLabel>Browse</SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setSelectedTable("books")}>
+                <SidebarMenuButton onClick={() => setSelectedTable('books')}>
                   <Book />
                   <span>Books</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setSelectedTable("publishers")}>
+                <SidebarMenuButton onClick={() => setSelectedTable('publishers')}>
                   <Users />
                   <span>Publishers</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setSelectedTable("members")}>
+                <SidebarMenuButton onClick={() => setSelectedTable('members')}>
                   <User />
                   <span>Members</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setSelectedTable("staff")}>
+                <SidebarMenuButton onClick={() => setSelectedTable('staff')}>
                   <User />
                   <span>Staff</span>
                 </SidebarMenuButton>
@@ -571,9 +614,7 @@ export default function Home() {
                       Add
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
-                    {renderAddDialogContent()}
-                  </DialogContent>
+                  <DialogContent>{renderAddDialogContent()}</DialogContent>
                 </Dialog>
               </div>
             </CardHeader>
@@ -588,82 +629,5 @@ export default function Home() {
         </div>
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-async function BookTable({ data }: { data: any[] }) {
-  return (
-    <div className="grid gap-4">
-      {data.map((book) => (
-        <Card key={book.BookID}>
-          <CardHeader>
-            <CardTitle>{book.Title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Author: {book.Author}</p>
-            <p>ISBN: {book.ISBN}</p>
-            <p>Genre: {book.Genre}</p>
-            <p>Quantity: {book.Quantity}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-async function PublisherTable({ data }: { data: any[] }) {
-  return (
-    <div className="grid gap-4">
-      {data.map((publisher) => (
-        <Card key={publisher.PublisherID}>
-          <CardHeader>
-            <CardTitle>{publisher.Name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Address: {publisher.Address}</p>
-            <p>Email: {publisher.Email}</p>
-            <p>Phone: {publisher.Phone}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-async function MemberTable({ data }: { data: any[] }) {
-  return (
-    <div className="grid gap-4">
-      {data.map((member) => (
-        <Card key={member.MemberID}>
-          <CardHeader>
-            <CardTitle>{member.Name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Email: {member.Email}</p>
-            <p>Phone: {member.Phone}</p>
-            <p>Address: {member.Address}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-async function StaffTable({ data }: { data: any[] }) {
-  return (
-    <div className="grid gap-4">
-      {data.map((staff) => (
-        <Card key={staff.StaffID}>
-          <CardHeader>
-            <CardTitle>{staff.Name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Email: {staff.Email}</p>
-            <p>Phone: {staff.Phone}</p>
-            <p>Role: {staff.Role}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
   );
 }
