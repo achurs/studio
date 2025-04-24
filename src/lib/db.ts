@@ -14,14 +14,24 @@ let pool: mysql.Pool | null = null;
 
 const getPool = async (): Promise<mysql.Pool> => {
   if (!pool) {
-    pool = mysql.createPool(dbConfig);
     try {
+      pool = mysql.createPool(dbConfig);
       const connection = await pool.getConnection();
       console.log('Connected to MySQL!');
       connection.release(); // Release the connection back to the pool
-    } catch (error) {
-      console.error('Error connecting to MySQL:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('Error connecting to MySQL:', error.code);
+      // Retry connection after a delay if ECONNREFUSED
+      if (error.code === 'ECONNREFUSED') {
+        console.log('Retrying connection in 5 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        pool = mysql.createPool(dbConfig);
+        const connection = await pool.getConnection();
+        console.log('Connected to MySQL!');
+        connection.release(); // Release the connection back to the pool
+      } else {
+        throw error;
+      }
     }
   }
   return pool;
@@ -33,9 +43,17 @@ export const query = async (sql: string, params: any[] = []) => {
     const pool = await getPool();
     const [rows] = await pool.execute(sql, params);
     return rows;
-  } catch (error) {
-    console.error('MySQL query error:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('MySQL query error:', error.code);
+    if (error.code === 'ECONNREFUSED') {
+      console.log('Retrying query after connection retry...');
+      await getPool(); // Ensure the pool is re-established
+      const pool = await getPool();
+      const [rows] = await pool.execute(sql, params);
+      return rows;
+    } else {
+      throw error;
+    }
   }
 };
 
@@ -48,9 +66,20 @@ export const execute = async (sql: string, params: any[] = []) => {
       changes: result.affectedRows,
       lastID: result.insertId,
     };
-  } catch (error) {
-    console.error('MySQL execute error:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('MySQL execute error:', error.code);
+    if (error.code === 'ECONNREFUSED') {
+      console.log('Retrying execute after connection retry...');
+      await getPool(); // Ensure the pool is re-established
+      const pool = await getPool();
+      const [result]: any = await pool.execute(sql, params);
+      return {
+        changes: result.affectedRows,
+        lastID: result.insertId,
+      };
+    } else {
+      throw error;
+    }
   }
 };
 
