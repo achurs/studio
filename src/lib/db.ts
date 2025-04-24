@@ -1,36 +1,57 @@
 'use server';
 
-import sqlite3 from 'sqlite3';
+import mysql from 'mysql2/promise';
 
-// Initialize the database
-const db = new sqlite3.Database('database.db');
+const dbConfig = {
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || '',
+  database: process.env.MYSQL_DATABASE || 'librarylook',
+};
+
+// Initialize the database connection pool
+let pool: mysql.Pool | null = null;
+
+const getPool = async (): Promise<mysql.Pool> => {
+  if (!pool) {
+    pool = mysql.createPool(dbConfig);
+    try {
+      const connection = await pool.getConnection();
+      console.log('Connected to MySQL!');
+      connection.release(); // Release the connection back to the pool
+    } catch (error) {
+      console.error('Error connecting to MySQL:', error);
+      throw error;
+    }
+  }
+  return pool;
+};
 
 // Function to execute a query
 export const query = async (sql: string, params: any[] = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        console.error('Database query error:', err);
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(sql, params);
+    return rows;
+  } catch (error) {
+    console.error('MySQL query error:', error);
+    throw error;
+  }
 };
 
 // Function to execute a non-SELECT query (INSERT, UPDATE, DELETE)
 export const execute = async (sql: string, params: any[] = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) {
-        console.error('Database execute error:', err);
-        reject(err);
-      } else {
-        resolve({ changes: this.changes, lastID: this.lastID }); // 'this' context contains info about the execution
-      }
-    });
-  });
+  try {
+    const pool = await getPool();
+    const [result]: any = await pool.execute(sql, params);
+    return {
+      changes: result.affectedRows,
+      lastID: result.insertId,
+    };
+  } catch (error) {
+    console.error('MySQL execute error:', error);
+    throw error;
+  }
 };
 
 // Function to initialize the database tables
@@ -38,7 +59,7 @@ export const initializeDatabase = async () => {
   try {
     await execute(`
       CREATE TABLE IF NOT EXISTS Publishers (
-          PublisherID INTEGER PRIMARY KEY AUTOINCREMENT,
+          PublisherID INT AUTO_INCREMENT PRIMARY KEY,
           Name VARCHAR(255) NOT NULL,
           Address TEXT,
           Email VARCHAR(100) UNIQUE,
@@ -48,7 +69,7 @@ export const initializeDatabase = async () => {
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Books (
-          BookID INTEGER PRIMARY KEY AUTOINCREMENT,
+          BookID INT AUTO_INCREMENT PRIMARY KEY,
           Title VARCHAR(255) NOT NULL,
           Author VARCHAR(255) NOT NULL,
           ISBN VARCHAR(20) UNIQUE NOT NULL,
@@ -62,7 +83,7 @@ export const initializeDatabase = async () => {
 
     await execute(`
       CREATE TABLE IF NOT EXISTS MembershipTypes (
-          MembershipTypeID INTEGER PRIMARY KEY AUTOINCREMENT,
+          MembershipTypeID INT AUTO_INCREMENT PRIMARY KEY,
           TypeName VARCHAR(100) NOT NULL,
           DurationMonths INT NOT NULL,
           Fee DECIMAL(10,2) NOT NULL
@@ -71,34 +92,34 @@ export const initializeDatabase = async () => {
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Members (
-          MemberID INTEGER PRIMARY KEY AUTOINCREMENT,
+          MemberID INT AUTO_INCREMENT PRIMARY KEY,
           Name VARCHAR(255) NOT NULL,
           Email VARCHAR(100) UNIQUE NOT NULL,
           Phone VARCHAR(15) UNIQUE NOT NULL,
           Address TEXT,
           MembershipTypeID INT,
-          MembershipDate DATE DEFAULT (DATE('now')),
+          MembershipDate DATE DEFAULT (CURDATE()),
           FOREIGN KEY (MembershipTypeID) REFERENCES MembershipTypes(MembershipTypeID) ON DELETE SET NULL
       )
     `);
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Staff (
-          StaffID INTEGER PRIMARY KEY AUTOINCREMENT,
+          StaffID INT AUTO_INCREMENT PRIMARY KEY,
           Name VARCHAR(255) NOT NULL,
           Email VARCHAR(100) UNIQUE NOT NULL,
           Phone VARCHAR(15) UNIQUE NOT NULL,
           Role VARCHAR(50),
-          HireDate DATE DEFAULT (DATE('now'))
+          HireDate DATE DEFAULT (CURDATE())
       )
     `);
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Borrowings (
-          BorrowID INTEGER PRIMARY KEY AUTOINCREMENT,
+          BorrowID INT AUTO_INCREMENT PRIMARY KEY,
           MemberID INT,
           BookID INT,
-          BorrowDate DATE DEFAULT (DATE('now')),
+          BorrowDate DATE DEFAULT (CURDATE()),
           DueDate DATE NOT NULL,
           ReturnDate DATE,
           StaffID INT,
@@ -110,7 +131,7 @@ export const initializeDatabase = async () => {
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Fines (
-          FineID INTEGER PRIMARY KEY AUTOINCREMENT,
+          FineID INT AUTO_INCREMENT PRIMARY KEY,
           BorrowID INT,
           Amount DECIMAL(10,2) NOT NULL,
           Paid BOOLEAN DEFAULT FALSE,
@@ -120,17 +141,17 @@ export const initializeDatabase = async () => {
 
     await execute(`
       CREATE TABLE IF NOT EXISTS Reservations (
-          ReservationID INTEGER PRIMARY KEY AUTOINCREMENT,
+          ReservationID INT AUTO_INCREMENT PRIMARY KEY,
           MemberID INT,
           BookID INT,
-          ReservationDate DATE DEFAULT (DATE('now')),
-          Status TEXT DEFAULT 'Pending',
+          ReservationDate DATE DEFAULT (CURDATE()),
+          Status ENUM('Pending', 'Completed', 'Cancelled') DEFAULT 'Pending',
           FOREIGN KEY (MemberID) REFERENCES Members(MemberID) ON DELETE CASCADE,
           FOREIGN KEY (BookID) REFERENCES Books(BookID) ON DELETE CASCADE
       )
     `);
   } catch (error) {
-    console.error("Error initializing database:", error);
+    console.error('Error initializing database:', error);
     throw error;
   }
 };
